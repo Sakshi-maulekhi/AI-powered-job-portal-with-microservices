@@ -4,6 +4,8 @@ import ErrorHandler from "../utils/ErrorHandler.js";
 import { sql } from "../utils/db.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import getBuffer from "../utils/buffer.js";
+import axios from "axios";
 
 export const register = TryCatch(async (req : Request , res : Response, next : NextFunction)=>{
     console.log("REGISTER HIT");
@@ -27,8 +29,21 @@ console.log(req.body);
     }
     else if(role == "jobseeker"){
         const file = req.file
-        const [user] = await sql `Insert into users (name,email,password,phone_number,role) values ( ${name}, ${email}, ${hashPassword}, ${phone_number}, ${role}) returning 
-        user_id,name,email,phone_number,role`
+
+        if(!file){
+            throw new ErrorHandler("Resume file is required for jobseeker", 400);
+        }
+        const fileBuffer =  getBuffer(file);
+
+        if(!fileBuffer || !fileBuffer.content){
+            throw new ErrorHandler("Failed to geenrtae buffer",500);
+        }
+
+        const {data} = await axios.post(`${process.env.UPLOAD_SERVICE}/api/utils/upload`,{buffer: fileBuffer.content});
+
+        const [user] = await sql `Insert into users (name,email,password,phone_number,role,bio,resume,resume_public_id) values 
+        ( ${name}, ${email}, ${hashPassword}, ${phone_number}, ${role}, ${bio}, ${data.url}, ${data.public_id}) returning 
+        user_id,name,email,phone_number,role,bio,resume,created_at`
         registeredUser = user;
     }
     else {
