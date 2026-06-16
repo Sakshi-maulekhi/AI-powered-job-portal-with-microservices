@@ -6,6 +6,9 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import getBuffer from "../utils/buffer.js";
 import axios from "axios";
+import {forgotPasswordTemplate} from "../utils/template.js";
+import { publishToTopic } from "../producer.js";
+import { redisClient } from "../index.js";
 
 export const register = TryCatch(async (req : Request , res : Response, next : NextFunction)=>{
     console.log("REGISTER HIT");
@@ -24,7 +27,7 @@ console.log(req.body);
     let registeredUser;
     if(role == "recruiter"){
         const [user] = await sql `Insert into users (name,email,password,phone_number,role) values ( ${name}, ${email}, ${hashPassword}, ${phone_number}, ${role}) returning 
-        user_id,name,email,phoneNumber,role`
+        user_id,name,email,phone_number,role`
         registeredUser = user; 
     }
     else if(role == "jobseeker"){
@@ -72,6 +75,8 @@ export const loginUser = TryCatch(async(req,res,next)=>{
     const {email,password} = req.body;
 
     if(!email || !password){
+        console.log("ErrorHandler:", ErrorHandler);
+console.log("typeof:", typeof ErrorHandler);
         throw new ErrorHandler("Please fill all details",400);
     }
     
@@ -105,7 +110,86 @@ export const loginUser = TryCatch(async(req,res,next)=>{
         token
     })
 
+})
+export const forgotPassword = TryCatch(async(req,res,next) =>{
+    const {email} = req.body;
 
+    if(!email){
+        throw new ErrorHandler("email is required",400);
+    }
+    const users= await sql `Select user_id,email from users where email = ${email}`;
 
-    
+    if(users.length === 0){
+        return res.json({
+            message : "If that email exists, we have sent a reset link" 
+        })
+    }
+
+    const user = users[0];
+
+    const resetToken = jwt.sign({
+        email : user.email,
+        type : "reset",
+    },
+    process.env.JWT_SEC as string,
+    {expiresIn : "15m"}
+);
+const resetLink = `${process.env.Frontend_Url}/reset/${resetToken}`
+
+await redisClient.set('forgot: ${email}',resetToken,{
+    EX : 900,
+})
+
+const message = {
+    to :email,
+    subject :"Reset your Password - hireheaven",
+    html :forgotPasswordTemplate(resetLink),
+}
+
+publishToTopic("send-mail",message).catch((error)=>{
+    console.log("failed to send message",error);
+});
+
+res.json({
+    messsage : "If that email exists, we have sent a reset link",
+})
+
+})
+
+export const  resetPassword = TryCatch(async(req, res, next)=>{
+    const token = req.params.token as string;
+    const {password} = req.body;
+
+    let decoded : any;
+    try{
+        decoded = jwt.verify(token, process.env.JWT_SEC as string)
+    } catch(error){
+        throw new ErrorHandler("Invalid token type",400);
+    }
+
+    if(decoded.type !== "reset"){
+        throw new ErrorHandler("Invalid token type", 400);
+    }
+    const email = decoded.email
+
+    const storedToken = await redisClient.get(`forgot:${email}`);
+
+    if(!storedToken || storedToken !== token){
+        throw new ErrorHandler("User not found", 404);
+    }
+
+    const users = await sql `Select user_id from users where email = ${email}`;
+
+    if(users.length === 0){
+        throw new ErrorHandler("User not found",404);
+    }
+    const user = users[0];
+
+    const hashPassword = await bcrypt.hash(password,10)
+
+    await sql `Update users SET password = ${hashPassword} where user_id = ${user.user_id}`;
+
+    await redisClient.del(`forgot:${email}`);
+
+    res.json({message : "Password changed successfully"})
 })
