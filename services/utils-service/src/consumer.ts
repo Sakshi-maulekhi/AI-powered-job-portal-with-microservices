@@ -18,33 +18,65 @@ export const startSendMailConsumer = async()=>{
 
    await consumer.subscribe({topic : topicName, fromBeginning : false});
 
+  
    console.log(" ✔ Mail service consumer started, listening for sending mail");
 
    await consumer.run({
     eachMessage : async({topic,partition,message})=>{
+      console.log("MESSAGE RECEIVED");
       try{
         const {to,subject,html} = JSON.parse(
           message.value?.toString() || "{}"
         );
-
-        const transporter = nodemailer.createTransport({
-          host : "smtp.gmail.com",
-          port : 465,
-          secure : true,
-          auth :{
-            user : "xyz",
-            pass : "yzx",
-          }
+        console.log("Mail consumer cwd:", process.cwd());
+        console.log("Mail env values:", {
+          EMAIL_USER: process.env.EMAIL_USER,
+          EMAIL_PASS: process.env.EMAIL_PASS ? "***" : undefined,
+          PASS: process.env.PASS ? "***" : undefined,
         });
 
-        await transporter.sendMail({
-          from : "Hireheaven <no-reply>",
+        const mailUser = process.env.EMAIL_USER || "sakshimaulekhi84@gmail.com";
+        const mailPass = process.env.EMAIL_PASS || process.env.PASS;
+
+        if (!mailUser || !mailPass) {
+          console.log("Missing SMTP credentials:", { mailUser, mailPassDefined: Boolean(mailPass) });
+        }
+
+        const transporter = nodemailer.createTransport({
+          host: "smtp.gmail.com",
+          port: 465,
+          secure: true,
+          auth: {
+            user: mailUser,
+            pass: mailPass,
+          },
+        });
+
+        try {
+          await transporter.verify();
+          console.log("SMTP verified");
+        } catch (err) {
+          console.log("SMTP verify failed:", err);
+          throw err;
+        }
+
+        const info = await transporter.sendMail({
+          from: mailUser,
           to,
           subject,
           html,
         });
+        const infoo = await transporter.sendMail({
+  from: "sakshimaulekhi84@gmail.com",
+  to,
+  subject,
+  html,
+});
 
-        console.log("Mail has been sent to ${to");
+console.log(info);
+console.log(infoo);
+
+        console.log(`Mail has been sent to ${to}`);
       }
       catch(error){
         console.log("Failed to send mail",error);
