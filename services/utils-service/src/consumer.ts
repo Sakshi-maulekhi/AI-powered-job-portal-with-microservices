@@ -35,7 +35,7 @@ export const startSendMailConsumer = async()=>{
           PASS: process.env.PASS ? "***" : undefined,
         });
 
-        const mailUser = process.env.EMAIL_USER || "sakshimaulekhi84@gmail.com";
+        const mailUser = process.env.EMAIL_USER || "maulekhisakshi23@gmail.com";
         const mailPass = process.env.EMAIL_PASS || process.env.PASS;
 
         if (!mailUser || !mailPass) {
@@ -60,20 +60,20 @@ export const startSendMailConsumer = async()=>{
           throw err;
         }
 
-        const info = await transporter.sendMail({
-          from: mailUser,
-          to,
-          subject,
-          html,
-        });
+        // const info = await transporter.sendMail({
+        //   from: mailUser,
+        //   to,
+        //   subject,
+        //   html,
+        // });
         const infoo = await transporter.sendMail({
-  from: "sakshimaulekhi84@gmail.com",
+  from: "Hireheaven <no-reply>",
   to,
   subject,
   html,
 });
 
-console.log(info);
+
 console.log(infoo);
 
         console.log(`Mail has been sent to ${to}`);
