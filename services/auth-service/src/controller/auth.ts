@@ -136,7 +136,7 @@ export const forgotPassword = TryCatch(async(req,res,next) =>{
 );
 const resetLink = `${process.env.Frontend_Url}/reset/${resetToken}`
 
-await redisClient.set('forgot: ${email}',resetToken,{
+await redisClient.set(`forgot:${email}`,resetToken,{
     EX : 900,
 })
 

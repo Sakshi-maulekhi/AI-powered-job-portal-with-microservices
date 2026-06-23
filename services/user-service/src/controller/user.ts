@@ -72,6 +72,7 @@ const {
   subscription,
 } = req.body;
 
+
 const updatedUsers = await sql`
   UPDATE users
   SET

@@ -1,4 +1,4 @@
-import {Kafka, Producer, Admin} from 'Kafkajs';
+import {Kafka, Producer, Admin} from 'kafkajs';
 import dotenv from 'dotenv';
 
 dotenv.config();
